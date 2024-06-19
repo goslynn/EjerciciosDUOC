@@ -156,11 +156,16 @@ def procesoPago(ventaTracked):
         'dcto': round(ventaTracked['dcto'][1]*ventaTracked['size'][1]),
     }
     paymentInfo['total'] = paymentInfo['subtotal'] - (paymentInfo['dcto'])
-    print(f"paymentInfo: {paymentInfo}")
     ventaFinal = ventaTracker(paymentInfo)
     return ventaFinal
 
 #Mostrar todas las ventas.
+def mostrarVentas():
+    for venta in ventasCollection:
+        print(f"{venta['registeredName']}")
+        for key, value in venta['detalle'].items():
+            print(f"{key}: {value}")
+        print("\n")
 def opt2(): 
     pass
 
@@ -195,7 +200,8 @@ def addVenta(ventaFinal):
     formatted_now = now.strftime("%d/%m/%Y, %H:%M:%S")
     ventaCollectionIdString = f"venta_{ventaFinal['id']} - {formatted_now}"
     ventaData = {
-        ventaCollectionIdString: copy.deepcopy(ventaFinal)
+        'registeredName': ventaCollectionIdString,
+        'detalle': copy.deepcopy(ventaFinal)
     }
     ventasCollection.append(ventaData)
     
@@ -212,44 +218,61 @@ def opt5():
     pass
 
 #Generar Boleta.
-def opt6(ventaFinal): 
-    #Calculando los pagos.
+
+def generarBoleta(detalleVenta):
     now = datetime.datetime.now()
     formatted_now = now.strftime("%d/%m/%Y, %H:%M:%S")
-    subtotal = ventaFinal['subtotal']
-    dcto = ventaFinal['dcto'][1]
-    total = ventaFinal['total']
-    #Generando la boleta.
+    subtotal = detalleVenta['subtotal']
+    dcto = detalleVenta['dcto'][2]
+    total = detalleVenta['total']
     boleta = f"==== BOLETA DE VENTA ==== \n"
-    boleta += f"ID: {ventaFinal['id']} \n"
-    boleta += f"Cliente: {ventaFinal['cliente']} \n"
-    boleta += f"1 : {ventaFinal['pizza']} {ventaFinal['size'][0]} \n"
+    boleta += f"ID: {detalleVenta['id']} \n"
+    boleta += f"Cliente: {detalleVenta['cliente']} \n"
+    boleta += f"1 : {detalleVenta['pizza']} {detalleVenta['size'][0]} \n" #Tamaño en español y agregar cantidad opcional
     boleta += f"-------------------------------- \n"
     boleta += f"SUBTOTAL: {subtotal} \n"
-    boleta += f"DESCUENTO: -{subtotal*dcto} \n"
+    boleta += f"DESCUENTO: -{dcto} \n"
     boleta += f"TOTAL: {total} \n"
     boleta += f"-------------------------------- \n"
     boleta += f"Gracias por su compra! \t\t {formatted_now}"
-    print(boleta)
+    return boleta
 
-#======= EJECUCION =======
+def opt6(): 
+    mostrarVentas()
+    print("Ingrese el ID de la venta que desea generar la boleta (sólo número): ")
+    ventaId= intInputChecker(range(1, len(ventasCollection)+1))
+    detalleVenta = ventasCollection[ventaId-1]['detalle']
+    os.system('cls')
+    print(generarBoleta(detalleVenta))
+    
+#====== EJECUCION =======
 while True:
     choice = menu()
     if choice == 1:
         ventaTracked = opt1() #Inicia la venta capturando los datos pero sin procesar el pago.
         ventaFinal = procesoPago(ventaTracked) #Procesa el pago y genera el objeto ventaFinal.
-        addVenta(ventaFinal) #Agrega la venta a la colección de ventas.
-        reset(ventaTracked) #Resetea la venta preeliminar, la ventaFinal y la ventaTracked, al ser estas referencias de la una a la otra.
         ventaFinalTemplate = get_ventaFinalTemplate() #Obtiene una nueva plantilla de venta para la siguiente venta.
-        input()
-        os.system('cls')
-        print(f"ventaFinal: {ventaFinal} \n"
-              f"ventaTracked: {ventaTracked} \n"
-              f"ventaFinalTemplate: {ventaFinalTemplate} \n"
-              f"ventasCollection: {ventasCollection} \n")
-        input()
+        print("=====================================")
+        print("Es esta venta correcta? \n"
+              "1. Si \n"
+              "2. No")
+        isValid = intInputChecker([1, 2])
+        if isValid == 1:
+            os.system('cls')
+            addVenta(ventaFinal) #Agrega la venta a la colección de ventas.
+            reset(ventaTracked) #Resetea la venta preeliminar, la ventaFinal y la ventaTracked, al ser estas referencias de la una a la otra.
+            print("Venta registrada con éxito.")
+            input()
+        elif isValid == 2:
+            os.system('cls')
+            reset(ventaTracked)
+            ventasId -= 1
+            print("Venta cancelada.")
+            input()
     elif choice == 2:
-        pass
+        os.system('cls')
+        mostrarVentas()
+        input()
     elif choice == 3:
         pass
     elif choice == 4: #Hacer que funcione el json
@@ -262,7 +285,8 @@ while True:
     elif choice == 5: 
         pass
     elif choice == 6: #Replantear como se imprimen las boletas. 
-        opt6(ventaFinal)
+        os.system('cls')
+        opt6()
         input()
     elif choice == 7:
         break
