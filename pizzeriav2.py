@@ -1,17 +1,11 @@
-#Recordar
-#1. Crear el archivo que guarde las ventas e inicializar el dict en este (json)
-#2. Considerar la necesidad de un Id de usuario
-#3. Venta y boleta va aparte, supongo que se deberá guardar la venta hasta que se genere boleta
-#y en el caso de que ingrese mas ventas sin generar boleta, se deberá guardar en un archivo temporal y cuando genere
-#la boleta mostrará todas las boletas pendientes, adicionalmente si hay boleta pendiente y inicia otra venta 
-#preguntar si desea hacerlo. 
-#4. Al salir sin haber guardado cambios preguntar si desea guardarlos.
+#Imports
 #=======================================================================================================
 import os
 import json
 import datetime
 import copy
-
+#=======================================================================================================
+#Constantes
 pizzas = [
     ['Peperoni',{'small': 5000, 'medium': 8000, 'large': 10000}],
     ['Mediterranea',{'small': 6000, 'medium': 9000, 'large': 12000}],
@@ -24,24 +18,23 @@ dctos = {
     'administrativo' : 0.1,
 }
 
-
 ventasCollection = []
+ventasId = 1
 
 directory = os.getcwd()
-ventaIdPath = os.path.join(directory, 'ventasId.json')
-
-def loadVentasId():
-    try:
-        with open(ventaIdPath, 'r') as f:
-            ventasId = json.load(f)
-    except FileNotFoundError:
-        ventasId = 1
-    return ventasId
-
-ventasId = loadVentasId()
-
-
+dbpath = os.path.join(directory, 'ventasdb.json')
+#=======================================================================================================
 #Utilidades
+def loadVentas():
+    try:
+        with open(dbpath, 'r') as f:
+            ventasCollection = json.load(f)
+            ventasId = ventasCollection[-1]['detalle']['id']+1
+            print(f"{len(ventasCollection)} ventas cargadas con éxito desde {dbpath}")
+        return ventasCollection, ventasId
+    except FileNotFoundError:
+        print(f"No se ha encontrado archivo .json que contenga las ventas.")
+
 def intInputChecker(opciones):
     while True:
         try:
@@ -68,13 +61,15 @@ def get_ventaFinalTemplate():
         'cliente': "",
         'pizza': "",
         'size': [],
+        'cantidad': 0,
         'dcto': [],
         'subtotal': 0,
         'total': 0,
     }
-        
-#Menu
+    
 
+#=======================================================================================================   
+#Menu
 def menu():
     while True:
         os.system('cls')
@@ -90,6 +85,7 @@ def menu():
         choice = intInputChecker(opciones)
         return choice
     
+#=======================================================================================================
 #Venta.
 def opt1(): 
     while True:
@@ -119,6 +115,12 @@ def opt1():
         tracker.append(f"Tamaño de la pizza: {list(pizzas[pizza-1][1].keys())[pizzaSize-1]}")
         os.system('cls')
         print('\n'.join(tracker))
+        print("================================ \n"
+              "ingrese cantidad de pizzas: \n")
+        cantidad = intInputChecker(range(1, 999999999999999999999))
+        tracker.append(f"Cantidad de pizzas: {cantidad}")
+        os.system('cls')
+        print('\n'.join(tracker))
         print("=============================== \n"
             "Que descuento aplica: \n"
             "1. Estudiante diurno \n"
@@ -131,7 +133,6 @@ def opt1():
         break
     #Todos los datos requeridos completados.
     #==========================================================
-    #agregar opcion para reiterar la venta. por ahora lo probare como esta
     #Extraer inputs y devolver objeto venta preeliminar.
     global ventasId
     pizzaType = pizzas[pizza-1][0]
@@ -142,39 +143,80 @@ def opt1():
         'cliente': cliente,
         'pizza': pizzaType,
         'size': [pizzaSize, pizzas[pizza-1][1][pizzaSize]],
+        'cantidad': cantidad,
         'dcto': [dctoApplied, dctos[dctoApplied]],
-        #debe pedir cantidad?
     }
     ventaTracked = ventaTracker(ventaPreeliminar)
     ventasId += 1
     return ventaTracked
 
-#Recoradar ejecutar y guardar en variable. 
-def procesoPago(ventaTracked):
+
+def procesoPago(ventaTracked):#Recoradar ejecutar y guardar en variable. 
+    subtotal = ventaTracked['size'][1]*ventaTracked['cantidad']
+    dcto = round(ventaTracked['dcto'][1]*subtotal)
+    total = subtotal - dcto
     paymentInfo = {
-        'subtotal': ventaTracked['size'][1],
-        'dcto': round(ventaTracked['dcto'][1]*ventaTracked['size'][1]),
+        'subtotal': subtotal,
+        'dcto': dcto,
+        'total': total,
     }
-    paymentInfo['total'] = paymentInfo['subtotal'] - (paymentInfo['dcto'])
     ventaFinal = ventaTracker(paymentInfo)
     return ventaFinal
 
+#========================================================================================================
 #Mostrar todas las ventas.
-def mostrarVentas():
-    for venta in ventasCollection:
-        print(f"{venta['registeredName']}")
-        for key, value in venta['detalle'].items():
-            print(f"{key}: {value}")
-        print("\n")
-def opt2(): 
-    pass
-
+def mostrarVentas(filter = None):
+    if filter == None:
+        for venta in ventasCollection:
+            print(f"{venta['registeredName']}")
+            for key, value in venta['detalle'].items():
+                print(f"{key}: {value}")
+            print("\n")
+    else:
+        for venta in ventasCollection:
+            if venta['detalle']['cliente'] == filter:
+                print(f"{venta['registeredName']}")
+                for key, value in venta['detalle'].items():
+                    print(f"{key}: {value}")
+                print("\n")
+def opt2():
+    if ventasCollection == []:
+        print("No hay ventas registradas.")
+    elif ventasCollection != []:
+        mostrarVentas()
+#=======================================================================================================
 #Buscar ventas por cliente.
+def getClients():
+    clients = []
+    for venta in ventasCollection:
+        if venta['detalle']['cliente'] not in clients:
+            clients.append(venta['detalle']['cliente'])
+    return clients
+
 def opt3(): 
-    pass
+    clients = getClients()
+    if clients == []:
+        print("No hay ventas registradas.")
+        input()
+    else:
+        while True:
+            print("Clientes registrados: \n")
+            for name in clients:
+                print(name)
+            print("Ingrese el nombre del cliente que desea buscar: ")
+            client = str(input(": "))
+            if client in clients:
+                os.system('cls')
+                print(f"Ventas de {client}: \n")
+                mostrarVentas(client)
+                input()
+                break
+            else:
+                print("Cliente no encontrado.")
+                input()
+                os.system('cls')
 
-
-
+#=======================================================================================================
 #Guardar las ventas.
 
 #Trackea el proceso de venta y crea el objeto ventaFinal.
@@ -206,19 +248,25 @@ def addVenta(ventaFinal):
     ventasCollection.append(ventaData)
     
 def opt4():
-    pass
+    if ventasCollection == []:
+        print("No hay ventas registradas.")
+    else:
+        with open(dbpath, 'w') as f:
+            json.dump(ventasCollection, f)
+        print(f"{len(ventasCollection)} ventas guardadas en con éxito en {dbpath}")
+  
 
-
-
-
-
-
+#=======================================================================================================
 #Cargar las ventas desde un archivo.
 def opt5(): 
-    pass
+    global ventasCollection, ventasId
+    try:
+        ventasCollection, ventasId = loadVentas()
+    except TypeError:
+        pass
 
+#=======================================================================================================
 #Generar Boleta.
-
 def generarBoleta(detalleVenta):
     now = datetime.datetime.now()
     formatted_now = now.strftime("%d/%m/%Y, %H:%M:%S")
@@ -228,7 +276,7 @@ def generarBoleta(detalleVenta):
     boleta = f"==== BOLETA DE VENTA ==== \n"
     boleta += f"ID: {detalleVenta['id']} \n"
     boleta += f"Cliente: {detalleVenta['cliente']} \n"
-    boleta += f"1 : {detalleVenta['pizza']} {detalleVenta['size'][0]} \n" #Tamaño en español y agregar cantidad opcional
+    boleta += f"{detalleVenta['cantidad']} : {detalleVenta['pizza']} {detalleVenta['size'][0]} \n" #Tamaño en español y agregar cantidad opcional
     boleta += f"-------------------------------- \n"
     boleta += f"SUBTOTAL: {subtotal} \n"
     boleta += f"DESCUENTO: -{dcto} \n"
@@ -237,18 +285,22 @@ def generarBoleta(detalleVenta):
     boleta += f"Gracias por su compra! \t\t {formatted_now}"
     return boleta
 
+#Pregunta por boleta y la imprime.
 def opt6(): 
-    mostrarVentas()
-    print("Ingrese el ID de la venta que desea generar la boleta (sólo número): ")
-    ventaId= intInputChecker(range(1, len(ventasCollection)+1))
-    detalleVenta = ventasCollection[ventaId-1]['detalle']
-    os.system('cls')
-    print(generarBoleta(detalleVenta))
-    
+    if ventasCollection == []:
+        print("No hay ventas registradas.")
+    else:
+        mostrarVentas()
+        print("Ingrese el ID de la venta que desea generar la boleta (sólo número): ")
+        ventaId= intInputChecker(range(1, len(ventasCollection)+1))
+        detalleVenta = ventasCollection[ventaId-1]['detalle']
+        os.system('cls')
+        print(generarBoleta(detalleVenta))
+        
 #====== EJECUCION =======
 while True:
     choice = menu()
-    if choice == 1:
+    if choice == 1: #Ingresar venta
         ventaTracked = opt1() #Inicia la venta capturando los datos pero sin procesar el pago.
         ventaFinal = procesoPago(ventaTracked) #Procesa el pago y genera el objeto ventaFinal.
         ventaFinalTemplate = get_ventaFinalTemplate() #Obtiene una nueva plantilla de venta para la siguiente venta.
@@ -269,22 +321,24 @@ while True:
             ventasId -= 1
             print("Venta cancelada.")
             input()
-    elif choice == 2:
+    elif choice == 2: #Muestra las ventas
         os.system('cls')
-        mostrarVentas()
+        opt2()
         input()
-    elif choice == 3:
-        pass
-    elif choice == 4: #Hacer que funcione el json
-        opt4(ventaFinal)
-        reset(ventaFinal,ventaTracked)
-        print(f"ventaFinal: {ventaFinal} \n"
-              f"ventaTracked: {ventaTracked} \n"
-              f"ventasCollection: {ventasCollection} \n")   
+        print("\033[H\033[3J", end="") #Limpia el buffer de la terminal.
+    elif choice == 3:#Buscar ventas por cliente
+        os.system('cls')
+        opt3()
+        print("\033[H\033[3J", end="")
+    elif choice == 4: #Guarda las ventas
+        os.system('cls')
+        opt4()
         input()
-    elif choice == 5: 
-        pass
-    elif choice == 6: #Replantear como se imprimen las boletas. 
+    elif choice == 5: #Carga las ventas
+        os.system('cls')
+        opt5()
+        input()
+    elif choice == 6: #Imprime las boletas
         os.system('cls')
         opt6()
         input()
